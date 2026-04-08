@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Sarı Yılan - Gerçekçi Fare ve Yüksek Skor</title>
+    <style>
+        * {
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: linear-gradient(145deg, #0a2f5a 0%, #051e34 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', 'Poppins', system-ui, -apple-system, sans-serif;
+            touch-action: pan-y;
+        }
+
+        .game-container {
+            background: #0b3b5f;
+            padding: 20px;
+            border-radius: 40px;
+            box-shadow: 0 25px 40px rgba(0,0,0,0.5), inset 0 1px 4px rgba(255,255,255,0.2);
+            border: 1px solid #5fa7cf;
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 24px;
+            box-shadow: 0 0 0 5px #2c6c9e, 0 15px 30px black;
+            background: radial-gradient(circle at 30% 20%, #1e6f9f, #0a3a5a);
+            cursor: pointer;
+            touch-action: none;
+            width: 100%;
+            height: auto;
+            max-width: 650px;
+        }
+
+        .info-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 18px;
+            gap: 15px;
+            flex-wrap: wrap;
+            background: #022b44cc;
+            backdrop-filter: blur(8px);
+            padding: 10px 20px;
+            border-radius: 60px;
+            border: 1px solid #7bc3ff;
+        }
+
+        .score-box {
+            background: #011c2b;
+            padding: 6px 20px;
+            border-radius: 40px;
+            color: #ffe6b3;
+            font-weight: bold;
+            font-size: 1.7rem;
+            font-family: monospace;
+            box-shadow: inset 0 1px 3px #00000033, 0 3px 0 #006699;
+        }
+
+        .score-box span {
+            font-size: 0.9rem;
+            color: #7bc3ff;
+            margin-right: 6px;
+        }
+
+        .highscore-box {
+            background: #2a1a0acc;
+            padding: 6px 18px;
+            border-radius: 40px;
+            color: #ffd966;
+            font-weight: bold;
+            font-size: 1.2rem;
+            font-family: monospace;
+            border: 1px solid #ffb347;
+        }
+
+        .highscore-box span {
+            font-size: 0.8rem;
+            color: #ffcc88;
+            margin-right: 5px;
+        }
+
+        .status {
+            background: #001f2b;
+            padding: 6px 20px;
+            border-radius: 32px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #caf0ff;
+            font-family: monospace;
+            border-left: 3px solid #ffd966;
+        }
+
+        .restart-btn {
+            background: #ffb347;
+            border: none;
+            font-size: 1rem;
+            font-weight: bold;
+            padding: 7px 24px;
+            border-radius: 60px;
+            font-family: inherit;
+            cursor: pointer;
+            color: #1e3c4a;
+            transition: 0.1s linear;
+            box-shadow: 0 4px 0 #a05e15;
+            transform: translateY(-2px);
+        }
+        .restart-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 #a05e15;
+        }
+
+        .swipe-guide {
+            text-align: center;
+            margin-top: 14px;
+            font-size: 0.75rem;
+            color: #c7e9ff;
+            background: #02283e80;
+            display: inline-block;
+            width: auto;
+            padding: 5px 18px;
+            border-radius: 50px;
+        }
+
+        .footer-note {
+            text-align: center;
+            margin-top: 12px;
+            font-size: 0.7rem;
+            color: #8fcbff;
+        }
+
+        @media (max-width: 700px) {
+            .score-box { font-size: 1.3rem; padding: 4px 14px; }
+            .highscore-box { font-size: 1rem; padding: 4px 12px; }
+            .status { font-size: 0.85rem; padding: 4px 14px; }
+            .restart-btn { padding: 5px 18px; font-size: 0.9rem; }
+        }
+    </style>
+</head>
+<body>
+<div>
+    <div class="game-container">
+        <canvas id="gameCanvas" width="650" height="650"></canvas>
+        <div class="info-panel">
+            <div class="score-box"><span>🐭</span> <span id="scoreValue">0</span></div>
+            <div class="highscore-box"><span>🏆 REKOR</span> <span id="highScoreValue">0</span></div>
+            <div class="status" id="gameStatusText">🐍 OYNA</div>
+            <button class="restart-btn" id="restartButton">🔄 YENİDEN</button>
+        </div>
+        <div style="display: flex; justify-content: center;">
+            <div class="swipe-guide">
+                ⬅️ 👆 PARMAKLA KAYDIR 👇 ➡️
+            </div>
+        </div>
+        <div class="footer-note">
+            📱 Her yemde titreşim | Yüksek skoru geçince havai fişek 🎆
+        </div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        // ---------- OYUN AYARLARI ----------
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreSpan = document.getElementById('scoreValue');
+        const highScoreSpan = document.getElementById('highScoreValue');
+        const gameStatusSpan = document.getElementById('gameStatusText');
+        const restartBtn = document.getElementById('restartButton');
+
+        const GRID_SIZE = 20;
+        const CELL_SIZE = canvas.width / GRID_SIZE; // 32.5px
+        
+        // Yılan verileri
+        let snake = [];
+        let food = { x: 12, y: 12 };
+        let direction = 'right';
+        let nextDirection = 'right';
+        let score = 0;
+        let highScore = localStorage.getItem('snakeHighScore') ? parseInt(localStorage.getItem('snakeHighScore')) : 0;
+        let gameLoop = null;
+        let gameActive = true;
+        let gameSpeed = 125;
+        
+        // Animasyon
+        let tonguePhase = 0;
+        let fireworks = []; // Havai fişek parçacıkları
+        let showFireworks = false;
+        let fireworkTimer = null;
+        
+        highScoreSpan.innerText = highScore;
+        
+        // Titreşim
+        function vibratePhone(duration = 55) {
+            if (window.navigator && window.navigator.vibrate) {
+                window.navigator.vibrate(duration);
+            }
+        }
+        
+        // Havai fişek patlatma
+        function launchFireworks() {
+            showFireworks = true;
+            fireworks = [];
+            // 30 adet havai fişek parçacığı oluştur
+            for(let i = 0; i < 45; i++) {
+                fireworks.push({
+                    x: canvas.width / 2 + (Math.random() - 0.5) * 200,
+                    y: canvas.height / 2 + (Math.random() - 0.5) * 150,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8 - 3,
+                    life: 1,
+                    color: `hsl(${Math.random() * 360}, 80%, 60%)`,
+                    size: 3 + Math.random() * 5
+                });
+            }
+            // 2 saniye sonra havai fişekleri temizle
+            if(fireworkTimer) clearTimeout(fireworkTimer);
+            fireworkTimer = setTimeout(() => {
+                showFireworks = false;
+                fireworks = [];
+            }, 1800);
+        }
+        
+        // Skor güncelleme ve rekor kontrolü
+        function updateScoreAndCheckRecord(newScore) {
+            score = newScore;
+            scoreSpan.innerText = score;
+            if(score > highScore) {
+                highScore = score;
+                highScoreSpan.innerText = highScore;
+                localStorage.setItem('snakeHighScore', highScore);
+                // REKOR KIRILDI! HAVAI FİŞEK PATLAT
+                launchFireworks();
+                // Ekstra titreşim
+                vibratePhone(100);
+            }
+        }
+        
+        function randomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+        
+        function generateRandomFood() {
+            const totalCells = GRID_SIZE * GRID_SIZE;
+            if(snake.length >= totalCells) {
+                gameWin();
+                return false;
+            }
+            
+            const snakeSet = new Set(snake.map(seg => `${seg.x},${seg.y}`));
+            let newPos = null;
+            let attempts = 0;
+            while(!newPos && attempts < 3000) {
+                const randX = randomInt(0, GRID_SIZE-1);
+                const randY = randomInt(0, GRID_SIZE-1);
+                if(!snakeSet.has(`${randX},${randY}`)) {
+                    newPos = { x: randX, y: randY };
+                    break;
+                }
+                attempts++;
+            }
+            if(!newPos) {
+                for(let i=0; i<GRID_SIZE; i++) {
+                    for(let j=0; j<GRID_SIZE; j++) {
+                        if(!snakeSet.has(`${i},${j}`)) {
+                            newPos = { x: i, y: j };
+                            break;
+                        }
+                    }
+                    if(newPos) break;
+                }
+            }
+            if(newPos) {
+                food = newPos;
+                return true;
+            } else {
+                gameWin();
+                return false;
+            }
+        }
+        
+        function gameWin() {
+            if(!gameActive) return;
+            gameActive = false;
+            if(gameLoop) clearInterval(gameLoop);
+            gameLoop = null;
+            gameStatusSpan.innerHTML = "🏆 ŞAMPİYON! 🏆";
+            gameStatusSpan.style.color = "#FFE484";
+            drawBoard();
+        }
+        
+        function gameOver() {
+            if(!gameActive) return;
+            gameActive = false;
+            if(gameLoop) clearInterval(gameLoop);
+            gameLoop = null;
+            gameStatusSpan.innerHTML = "🔥 ENAYİ YANDIN! 🔥";
+            gameStatusSpan.style.color = "#ff8866";
+            drawBoard();
+        }
+        
+        function initGame() {
+            const mid = Math.floor(GRID_SIZE/2);
+            snake = [
+                { x: mid, y: mid },
+                { x: mid-1, y: mid },
+                { x: mid-2, y: mid },
+                { x: mid-3, y: mid },
+                { x: mid-4, y: mid }
+            ];
+            direction = 'right';
+            nextDirection = 'right';
+            score = 0;
+            gameActive = true;
+            gameSpeed = 125;
+            scoreSpan.innerText = "0";
+            gameStatusSpan.innerHTML = "🐍 OYNA";
+            gameStatusSpan.style.color = "#caf0ff";
+            showFireworks = false;
+            fireworks = [];
+            if(fireworkTimer) clearTimeout(fireworkTimer);
+            
+            const snakeSet = new Set(snake.map(s => `${s.x},${s.y}`));
+            let freeCells = [];
+            for(let i=0; i<GRID_SIZE; i++) {
+                for(let j=0; j<GRID_SIZE; j++) {
+                    if(!snakeSet.has(`${i},${j}`)) freeCells.push({x:i, y:j});
+                }
+            }
+            if(freeCells.length > 0) {
+                const rand = Math.floor(Math.random() * freeCells.length);
+                food = freeCells[rand];
+            } else {
+                food = { x: 5, y: 5 };
+            }
+            
+            if(gameLoop) clearInterval(gameLoop);
+            gameLoop = setInterval(gameTick, gameSpeed);
+            drawBoard();
+        }
+        
+        function moveSnake() {
+            if(!gameActive) return false;
+            
+            const newDir = nextDirection;
+            if((newDir === 'right' && direction !== 'left') ||
+               (newDir === 'left' && direction !== 'right') ||
+               (newDir === 'up' && direction !== 'down') ||
+               (newDir === 'down' && direction !== 'up')) {
+                direction = newDir;
+            }
+            
+            let newHead = { ...snake[0] };
+            switch(direction) {
+                case 'right': newHead.x += 1; break;
+                case 'left': newHead.x -= 1; break;
+                case 'up': newHead.y -= 1; break;
+                case 'down': newHead.y += 1; break;
+            }
+            
+            const willEat = (newHead.x === food.x && newHead.y === food.y);
+            let newSnake = [newHead, ...snake];
+            if(!willEat) {
+                newSnake.pop();
+            }
+            
+            if(newHead.x < 0 || newHead.x >= GRID_SIZE || newHead.y < 0 || newHead.y >= GRID_SIZE) {
+                gameOver();
+                return false;
+            }
+            
+            for(let i = 1; i < newSnake.length; i++) {
+                if(newSnake[i].x === newHead.x && newSnake[i].y === newHead.y) {
+                    gameOver();
+                    return false;
+                }
+            }
+            
+            snake = newSnake;
+            
+            if(willEat) {
+                const newScore = score + 1;
+                updateScoreAndCheckRecord(newScore);
+                vibratePhone(60);
+                
+                let newSpeed = Math.max(85, 125 - Math.floor(score / 7) * 2);
+                if(newSpeed !== gameSpeed) {
+                    gameSpeed = newSpeed;
+                    if(gameLoop) {
+                        clearInterval(gameLoop);
+                        gameLoop = setInterval(gameTick, gameSpeed);
+                    }
+                }
+                const success = generateRandomFood();
+                if(!success && gameActive) {
+                    if(gameActive) gameWin();
+                    return false;
+                }
+            }
+            return true;
+        }
+        
+        function gameTick() {
+            if(!gameActive) return;
+            moveSnake();
+            tonguePhase = (tonguePhase + 0.45) % (Math.PI * 2);
+            // Havai fişek animasyonu güncelleme
+            if(showFireworks) {
+                for(let i = 0; i < fireworks.length; i++) {
+                    fireworks[i].x += fireworks[i].vx;
+                    fireworks[i].y += fireworks[i].vy;
+                    fireworks[i].vy += 0.2;
+                    fireworks[i].life -= 0.02;
+                }
+                fireworks = fireworks.filter(f => f.life > 0 && f.y < canvas.height + 50);
+            }
+            drawBoard();
+        }
+        
+        // ---------- YILAN ÇİZİMİ (BÜTÜN PARÇA, BİRLEŞİK, AKIŞKAN) ----------
+        function drawBoard() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Arkaplan - okyanus
+            const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            grad.addColorStop(0, '#1e88e5');
+            grad.addColorStop(1, '#0d47a1');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Işık efekti
+            ctx.globalAlpha = 0.1;
+            for(let i = 0; i < 15; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, i * 55);
+                ctx.quadraticCurveTo(canvas.width * 0.6, i * 55 + 40, canvas.width, i * 55 - 20);
+                ctx.strokeStyle = "#fff8e0";
+                ctx.lineWidth = 20;
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+            
+            // YEM ÇİZİMİ - GERÇEK FARE RESMİ (detaylı)
+            const fx = food.x * CELL_SIZE;
+            const fy = food.y * CELL_SIZE;
+            const fCenterX = fx + CELL_SIZE/2;
+            const fCenterY = fy + CELL_SIZE/2;
+            
+            ctx.save();
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = "rgba(0,0,0,0.4)";
+            
+            // Fare gövdesi (kahverengi, yuvarlak)
+            ctx.beginPath();
+            ctx.ellipse(fCenterX, fCenterY, CELL_SIZE*0.42, CELL_SIZE*0.4, 0, 0, Math.PI*2);
+            ctx.fillStyle = "#8B5A2B";
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(fCenterX - 2, fCenterY - 1, CELL_SIZE*0.38, CELL_SIZE*0.36, 0, 0, Math.PI*2);
+            ctx.fillStyle = "#A8753A";
+            ctx.fill();
+            
+            // Kulaklar
+            ctx.fillStyle = "#7A4A1E";
+            ctx.beginPath();
+            ctx.ellipse(fCenterX - 13, fCenterY - 11, 7, 9, -0.2, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(fCenterX + 13, fCenterY - 11, 7, 9, 0.2, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = "#D99E5E";
+            ctx.beginPath();
+            ctx.ellipse(fCenterX - 12.5, fCenterY - 11.5, 4, 6, -0.15, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(fCenterX + 12.5, fCenterY - 11.5, 4, 6, 0.15, 0, Math.PI*2);
+            ctx.fill();
+            
+            // Gözler (siyah, parlak)
+            ctx.fillStyle = "#FFFFFF";
+            ctx.beginPath();
+            ctx.arc(fCenterX - 6, fCenterY - 3, 3.5, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(fCenterX + 6, fCenterY - 3, 3.5, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = "#1E1A0A";
+            ctx.beginPath();
+            ctx.arc(fCenterX - 6.3, fCenterY - 3.8, 2, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(fCenterX + 5.7, fCenterY - 3.8, 2, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = "#FFF9E0";
+            ctx.beginPath();
+            ctx.arc(fCenterX - 7, fCenterY - 4.5, 0.9, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(fCenterX + 5, fCenterY - 4.5, 0.9, 0, Math.PI*2);
+            ctx.fill();
+            
+            // Burun (pembe)
+            ctx.fillStyle = "#FF9E6B";
+            ctx.beginPath();
+            ctx.ellipse(fCenterX, fCenterY + 2.5, 3, 2.5, 0, 0, Math.PI*2);
+            ctx.fill();
+            
+            // Bıyıklar
+            ctx.beginPath();
+            ctx.strokeStyle = "#C0A070";
+            ctx.lineWidth = 1.3;
+            for(let side = -1; side <= 1; side+=2) {
+                ctx.moveTo(fCenterX + side*5, fCenterY + 1);
+                ctx.lineTo(fCenterX + side*14, fCenterY - 1);
+                ctx.stroke();
+                ctx.moveTo(fCenterX + side*5, fCenterY + 1.8);
+                ctx.lineTo(fCenterX + side*14, fCenterY + 2);
+                ctx.stroke();
+                ctx.moveTo(fCenterX + side*5, fCenterY + 0.5);
+                ctx.lineTo(fCenterX + side*14, fCenterY + 4);
+                ctx.stroke();
+            }
+            
+            // Tüyler
+            ctx.fillStyle = "#B87C3A";
+            for(let i = 0; i < 16; i++) {
+                ctx.beginPath();
+                ctx.arc(fCenterX - 4 + (i*0.8), fCenterY + 1.5 + (i%3 -1)*1.2, 0.9, 0, Math.PI*2);
+                ctx.fill();
+            }
+            ctx.restore();
+            
+            // ---------- YILAN (BÜTÜN PARÇA, BİRLEŞİK VE AKIŞKAN) ----------
+            ctx.save();
+            ctx.shadowBlur = 3;
+            ctx.shadowColor = "rgba(0,0,0,0.2)";
+            
+            // Yılanı bir bütün olarak çiz - tüm segmentler arasında yumuşak geçiş
+            for(let i = 0; i < snake.length; i++) {
+                const seg = snake[i];
+                const x = seg.x * CELL_SIZE;
+                const y = seg.y * CELL_SIZE;
+                const centerX = x + CELL_SIZE/2;
+                const centerY = y + CELL_SIZE/2;
+                const isHead = (i === 0);
+                const sizeW = isHead ? CELL_SIZE * 0.54 : CELL_SIZE * 0.48;
+                const sizeH = isHead ? CELL_SIZE * 0.52 : CELL_SIZE * 0.46;
+                
+                const gradBody = ctx.createRadialGradient(centerX-4, centerY-3, 3, centerX, centerY, sizeW);
+                gradBody.addColorStop(0, '#FFDE7A');
+                gradBody.addColorStop(0.6, '#F5B642');
+                gradBody.addColorStop(1, '#E6952E');
+                ctx.fillStyle = gradBody;
+                
+                ctx.beginPath();
+                ctx.ellipse(centerX, centerY, sizeW, sizeH, 0, 0, Math.PI*2);
+                ctx.fill();
+                
+                // Pullar (parlak)
+                ctx.beginPath();
+                ctx.ellipse(centerX - 3, centerY - 2, 3.5, 2.8, 0.4, 0, Math.PI*2);
+                ctx.fillStyle = "#FFC55A";
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(centerX + 4, centerY + 1, 3.2, 2.5, -0.3, 0, Math.PI*2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(centerX, centerY + 4, 3, 2.2, 0.1, 0, Math.PI*2);
+                ctx.fill();
+                
+                if(isHead) {
+                    // Baş kısmı daha belirgin
+                    ctx.beginPath();
+                    ctx.ellipse(centerX, centerY, CELL_SIZE * 0.58, CELL_SIZE * 0.56, 0, 0, Math.PI*2);
+                    ctx.fillStyle = gradBody;
+                    ctx.fill();
+                    
+                    // Gözler (yöne göre)
+                    let eyeXOffset = direction === 'right' ? 10 : (direction === 'left' ? -10 : 8);
+                    let eyeX1 = centerX + (direction === 'left' ? -10 : 10);
+                    let eyeX2 = centerX + (direction === 'left' ? -10 : 10);
+                    
+                    ctx.fillStyle = "#FFFFFF";
+                    ctx.beginPath();
+                    ctx.ellipse(eyeX1, centerY - 5, 5, 4.5, 0, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.ellipse(eyeX2, centerY + 1, 4.5, 4, 0, 0, Math.PI*2);
+                    ctx.fill();
+                    
+                    let pupilShift = 0;
+                    if(direction === 'right') pupilShift = 1.8;
+                    else if(direction === 'left') pupilShift = -1.8;
+                    
+                    ctx.fillStyle = "#0F2A0A";
+                    ctx.beginPath();
+                    ctx.arc(eyeX1 + pupilShift, centerY - 5, 2.8, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(eyeX2 + pupilShift, centerY + 1, 2.6, 0, Math.PI*2);
+                    ctx.fill();
+                    
+                    // Işık parlaması
+                    ctx.fillStyle = "#FFFCE8";
+                    ctx.beginPath();
+                    ctx.arc(eyeX1 + pupilShift - 1, centerY - 6, 1, 0, Math.PI*2);
+                    ctx.fill();
+                    
+                    // DİL (gittiği yöne doğru)
+                    const tongueLen = 14 + Math.sin(tonguePhase) * 3;
+                    let tX = centerX, tY = centerY;
+                    switch(direction) {
+                        case 'right': tX = centerX + 14; tY = centerY; break;
+                        case 'left': tX = centerX - 14; tY = centerY; break;
+                        case 'up': tX = centerX; tY = centerY - 14; break;
+                        case 'down': tX = centerX; tY = centerY + 14; break;
+                    }
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(centerX + (direction === 'right' ? 9 : (direction === 'left' ? -9 : 0)), 
+                               centerY + (direction === 'down' ? 9 : (direction === 'up' ? -9 : 0)));
+                    ctx.lineTo(tX, tY);
+                    ctx.lineWidth = 3.8;
+                    ctx.strokeStyle = "#E6492D";
+                    ctx.stroke();
+                    
+                    ctx.fillStyle = "#FF4D2E";
+                    ctx.beginPath();
+                    if(direction === 'right') {
+                        ctx.moveTo(tX, tY);
+                        ctx.lineTo(tX - 6, tY - 3);
+                        ctx.lineTo(tX - 6, tY + 3);
+                    } else if(direction === 'left') {
+                        ctx.moveTo(tX, tY);
+                        ctx.lineTo(tX + 6, tY - 3);
+                        ctx.lineTo(tX + 6, tY + 3);
+                    } else if(direction === 'up') {
+                        ctx.moveTo(tX, tY);
+                        ctx.lineTo(tX - 3, tY + 6);
+                        ctx.lineTo(tX + 3, tY + 6);
+                    } else {
+                        ctx.moveTo(tX, tY);
+                        ctx.lineTo(tX - 3, tY - 6);
+                        ctx.lineTo(tX + 3, tY - 6);
+                    }
+                    ctx.fill();
+                }
+            }
+            
+            // Parlaklık katmanı
+            ctx.globalCompositeOperation = 'lighter';
+            for(let i = 0; i < snake.length; i++) {
+                const seg = snake[i];
+                const centerX = seg.x * CELL_SIZE + CELL_SIZE/2;
+                const centerY = seg.y * CELL_SIZE + CELL_SIZE/2;
+                ctx.beginPath();
+                ctx.ellipse(centerX - 2, centerY - 2, 3.5, 3, 0, 0, Math.PI*2);
+                ctx.fillStyle = "rgba(255,240,160,0.25)";
+                ctx.fill();
+            }
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.restore();
+            
+            // HAVAI FİŞEK ÇİZİMİ
+            if(showFireworks && fireworks.length > 0) {
+                for(let f of fireworks) {
+                    ctx.beginPath();
+                    ctx.arc(f.x, f.y, f.size * f.life, 0, Math.PI * 2);
+                    ctx.fillStyle = f.color;
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(f.x - 1, f.y - 1, f.size * f.life * 0.5, 0, Math.PI * 2);
+                    ctx.fillStyle = "rgba(255,255,200,0.8)";
+                    ctx.fill();
+                }
+            }
+            
+            // Oyun bitiş overlay - AKTİF YENİDEN BAŞLAT BUTONU
+            if(!gameActive) {
+                ctx.fillStyle = "rgba(0, 25, 45, 0.94)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                const panelWidth = canvas.width * 0.75;
+                const panelHeight = canvas.height * 0.45;
+                const panelX = (canvas.width - panelWidth) / 2;
+                const panelY = (canvas.height - panelHeight) / 2;
+                
+                ctx.fillStyle = "#022a3ccc";
+                ctx.shadowBlur = 0;
+                ctx.beginPath();
+                ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 30);
+                ctx.fill();
+                ctx.strokeStyle = "#ffaa66";
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 30);
+                ctx.stroke();
+                
+                ctx.font = `bold ${Math.floor(canvas.width * 0.065)}px 'Poppins', 'Segoe UI'`;
+                ctx.fillStyle = gameStatusSpan.innerHTML.includes("ENAYİ") ? "#ff8866" : "#FFD966";
+                ctx.textAlign = "center";
+                let msg = gameStatusSpan.innerHTML.includes("ENAYİ") ? "🔥 ENAYİ YANDIN! 🔥" : "🏆 ZAFER! 🏆";
+                ctx.fillText(msg, canvas.width/2, panelY + panelHeight * 0.3);
+                
+                ctx.font = `${Math.floor(canvas.width * 0.045)}px monospace`;
+                ctx.fillStyle = "#FFD27A";
+                ctx.fillText(`🐭 SKOR: ${score}`, canvas.width/2, panelY + panelHeight * 0.48);
+                ctx.fillStyle = "#ffb347";
+                ctx.fillText(`🏆 REKOR: ${highScore}`, canvas.width/2, panelY + panelHeight * 0.58);
+                
+                // YENİDEN BAŞLAT BUTONU (aktif, tıklanabilir)
+                const btnWidth = panelWidth * 0.65;
+                const btnHeight = panelHeight * 0.22;
+                const btnX = (canvas.width - btnWidth) / 2;
+                const btnY = panelY + panelHeight * 0.72;
+                
+                ctx.fillStyle = "#ffb347";
+                ctx.beginPath();
+                ctx.roundRect(btnX, btnY, btnWidth, btnHeight, 45);
+                ctx.fill();
+                ctx.fillStyle = "#1e3c2a";
+                ctx.font = `bold ${Math.floor(canvas.width * 0.045)}px 'Segoe UI'`;
+                ctx.fillText("🔄 YENİDEN BAŞLAT", canvas.width/2, btnY + btnHeight * 0.68);
+                
+                ctx.font = `${Math.floor(canvas.width * 0.028)}px monospace`;
+                ctx.fillStyle = "#bbddff";
+                ctx.fillText("ekrana dokun veya butona bas", canvas.width/2, btnY + btnHeight + 10);
+                ctx.textAlign = "left";
+                
+                // Buton alanını kaydet
+                canvas.dataset.restartX = btnX;
+                canvas.dataset.restartY = btnY;
+                canvas.dataset.restartW = btnWidth;
+                canvas.dataset.restartH = btnHeight;
+            } else {
+                canvas.dataset.restartX = 0;
+            }
+        }
+        
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+                if (w < 2 * r) r = w / 2;
+                if (h < 2 * r) r = h / 2;
+                this.moveTo(x+r, y);
+                this.lineTo(x+w-r, y);
+                this.quadraticCurveTo(x+w, y, x+w, y+r);
+                this.lineTo(x+w, y+h-r);
+                this.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+                this.lineTo(x+r, y+h);
+                this.quadraticCurveTo(x, y+h, x, y+h-r);
+                this.lineTo(x, y+r);
+                this.quadraticCurveTo(x, y, x+r, y);
+                return this;
+            };
+        }
+        
+        // Swipe ve tıklama kontrolleri
+        let touchStartX = 0, touchStartY = 0;
+        const minSwipeDistance = 20;
+        
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            touchStartX = touch.clientX - rect.left;
+            touchStartY = touch.clientY - rect.top;
+            if(!gameActive) checkRestartClick(touch.clientX - rect.left, touch.clientY - rect.top);
+        }
+        
+        function handleTouchEnd(e) {
+            if(!gameActive) { e.preventDefault(); return; }
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            let endX = e.changedTouches[0].clientX - rect.left;
+            let endY = e.changedTouches[0].clientY - rect.top;
+            const deltaX = endX - touchStartX;
+            const deltaY = endY - touchStartY;
+            if(Math.abs(deltaX) < minSwipeDistance && Math.abs(deltaY) < minSwipeDistance) return;
+            if(Math.abs(deltaX) > Math.abs(deltaY)) {
+                if(deltaX > 0) changeDirection('right');
+                else changeDirection('left');
+            } else {
+                if(deltaY > 0) changeDirection('down');
+                else changeDirection('up');
+            }
+        }
+        
+        function handleTouchMove(e) { e.preventDefault(); }
+        
+        function checkRestartClick(clickX, clickY) {
+            if(!gameActive && canvas.dataset.restartX) {
+                const rx = parseFloat(canvas.dataset.restartX);
+                const ry = parseFloat(canvas.dataset.restartY);
+                const rw = parseFloat(canvas.dataset.restartW);
+                const rh = parseFloat(canvas.dataset.restartH);
+                if(clickX >= rx && clickX <= rx+rw && clickY >= ry && clickY <= ry+rh) {
+                    restartGame();
+                }
+            }
+        }
+        
+        function changeDirection(newDir) {
+            if(!gameActive) return;
+            if((newDir === 'right' && direction === 'left') ||
+               (newDir === 'left' && direction === 'right') ||
+               (newDir === 'up' && direction === 'down') ||
+               (newDir === 'down' && direction === 'up')) return;
+            nextDirection = newDir;
+        }
+        
+        function handleKeydown(e) {
+            const key = e.key;
+            if(key === 'ArrowUp') changeDirection('up');
+            else if(key === 'ArrowDown') changeDirection('down');
+            else if(key === 'ArrowLeft') changeDirection('left');
+            else if(key === 'ArrowRight') changeDirection('right');
+            else if(key === ' ' && !gameActive) restartGame();
+        }
+        
+        function restartGame() {
+            if(gameLoop) clearInterval(gameLoop);
+            initGame();
+        }
+        
+        canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+        canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+            if(!gameActive) checkRestartClick(clickX, clickY);
+        });
+        
+        let mouseDown = false, mouseStartX = 0, mouseStartY = 0;
+        canvas.addEventListener('mousedown', (e) => {
+            if(gameActive) {
+                mouseDown = true;
+                const rect = canvas.getBoundingClientRect();
+                mouseStartX = e.clientX - rect.left;
+                mouseStartY = e.clientY - rect.top;
+                e.preventDefault();
+            } else {
+                const rect = canvas.getBoundingClientRect();
+                checkRestartClick(e.clientX - rect.left, e.clientY - rect.top);
+            }
+        });
+        canvas.addEventListener('mouseup', (e) => {
+            if(!mouseDown || !gameActive) { mouseDown = false; return; }
+            mouseDown = false;
+            const rect = canvas.getBoundingClientRect();
+            const endX = e.clientX - rect.left, endY = e.clientY - rect.top;
+            const deltaX = endX - mouseStartX, deltaY = endY - mouseStartY;
+            if(Math.abs(deltaX) < 15 && Math.abs(deltaY) < 15) return;
+            if(Math.abs(deltaX) > Math.abs(deltaY)) {
+                if(deltaX > 0) changeDirection('right');
+                else changeDirection('left');
+            } else {
+                if(deltaY > 0) changeDirection('down');
+                else changeDirection('up');
+            }
+        });
+        
+        window.addEventListener('keydown', handleKeydown);
+        restartBtn.addEventListener('click', () => restartGame());
+        
+        initGame();
+    })();
+</script>
+</body>
+</html>
